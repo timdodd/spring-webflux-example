@@ -1,6 +1,8 @@
 package com.acme.websocket;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -21,18 +23,24 @@ public class FooWebSocketHandler implements WebSocketHandler {
 
 	@Override
 	public Mono<Void> handle(final WebSocketSession webSocketSession) {
-		Flux<CustomMessageDto> flux = Flux.create(sink -> {
+		
+		Flux<String> heartbeat = Flux.interval(Duration.ofSeconds(5)).map(time -> "heartbeat");
+		
+		Flux<String> multipler = Flux.create(sink -> {
 			webSocketSession.receive()
 				.map(WebSocketMessage::getPayloadAsText)
 				.map(this::toObject)
 				.subscribe(value -> {
 					Integer nextValue = value.getValue() * 2;
-					sink.next(new CustomMessageDto().setValue(nextValue));
+					
+					Optional.of(nextValue)
+						.map(CustomMessageDto::new)
+						.map(this::toString)
+						.ifPresent(sink::next);
 				});
 			});
 
-		return webSocketSession.send(flux
-				.map(this::toString)
+		return webSocketSession.send(Flux.merge(heartbeat, multipler)
 				.map(webSocketSession::textMessage));
 	}
 
@@ -55,6 +63,14 @@ public class FooWebSocketHandler implements WebSocketHandler {
 	public static class CustomMessageDto {
 
 		private Integer value;
+		
+		public CustomMessageDto() {
+			
+		}
+		
+		public CustomMessageDto(Integer value) {
+			this.value = value;
+		}
 
 		public Integer getValue() {
 			return value;
