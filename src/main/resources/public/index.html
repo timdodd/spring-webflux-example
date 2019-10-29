@@ -5,16 +5,20 @@
   var socket = new WebSocket('ws://localhost:8080/event-emitter');
   socket.addEventListener('message', function (event) {
     console.log('receive from server: ' + event.data);
+	  const el = document.getElementById("data");
+	  el.innerHTML = el.innerHTML + "<br/> received from server: " + event.data;
   });
  
   socket.onopen = () => {
 	  const msg = '{"value":6}';
 	  console.log("sending value to server: " + msg)
+	  const el = document.getElementById("data");
+	  el.innerHTML = el.innerHTML + "<br/> sending to server: " + msg;
 	  socket.send(msg); 
   };
 
   
 </script>
 
-<h1>hello</h1>
+<p id="data">hello</p>
 </html>

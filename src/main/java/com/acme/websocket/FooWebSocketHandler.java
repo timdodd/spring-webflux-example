@@ -24,12 +24,13 @@ public class FooWebSocketHandler implements WebSocketHandler {
 	@Override
 	public Mono<Void> handle(final WebSocketSession webSocketSession) {
 		
-		Flux<String> heartbeat = Flux.interval(Duration.ofSeconds(5)).map(time -> "heartbeat");
+		Flux<String> heartbeat = Flux.interval(Duration.ofSeconds(4)).map(time -> "heartbeat");
 		
 		Flux<String> multipler = Flux.create(sink -> {
 			webSocketSession.receive()
 				.map(WebSocketMessage::getPayloadAsText)
 				.map(this::toObject)
+				.delayElements(Duration.ofSeconds(2L))
 				.subscribe(value -> {
 					Integer nextValue = value.getValue() * 2;
 					
