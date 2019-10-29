@@ -1,15 +1,13 @@
 package com.acme.websocket;
 
-import java.time.Duration;
-import java.util.UUID;
+import java.io.IOException;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
 
-import com.acme.model.Foo;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import reactor.core.publisher.Flux;
@@ -18,24 +16,53 @@ import reactor.core.publisher.Mono;
 @Component
 public class FooWebSocketHandler implements WebSocketHandler {
 
-    private static final ObjectMapper json = new ObjectMapper();
+	@Autowired
+	private ObjectMapper objectMapper;
 
-    private Flux<String> eventFlux = Flux.generate(sink -> {
-        Foo event = new Foo(UUID.randomUUID().toString());
-        try {
-            sink.next(json.writeValueAsString(event));
-        } catch (JsonProcessingException e) {
-            sink.error(e);
-        }
-    });
+	@Override
+	public Mono<Void> handle(final WebSocketSession webSocketSession) {
+		Flux<CustomMessageDto> flux = Flux.create(sink -> {
+			webSocketSession.receive()
+				.map(WebSocketMessage::getPayloadAsText)
+				.map(this::toObject)
+				.subscribe(value -> {
+					Integer nextValue = value.getValue() * 2;
+					sink.next(new CustomMessageDto().setValue(nextValue));
+				});
+			});
 
-    private Flux<String> intervalFlux = Flux.interval(Duration.ofMillis(1000L))
-      .zipWith(eventFlux, (time, event) -> event);
+		return webSocketSession.send(flux
+				.map(this::toString)
+				.map(webSocketSession::textMessage));
+	}
 
-    @Override
-    public Mono<Void> handle(final WebSocketSession webSocketSession) {
+	private CustomMessageDto toObject(String value) {
+		try {
+			return objectMapper.readValue(value, CustomMessageDto.class);
+		} catch (IOException e) {
+			return null;
+		}
+	}
 
-        return webSocketSession.send(intervalFlux.map(webSocketSession::textMessage))
-          .and(webSocketSession.receive().map(WebSocketMessage::getPayloadAsText).log());
-    }
+	private String toString(CustomMessageDto value) {
+		try {
+			return objectMapper.writeValueAsString(value);
+		} catch (IOException e) {
+			return null;
+		}
+	}
+
+	public static class CustomMessageDto {
+
+		private Integer value;
+
+		public Integer getValue() {
+			return value;
+		}
+
+		public CustomMessageDto setValue(Integer value) {
+			this.value = value;
+			return this;
+		}
+	}
 }

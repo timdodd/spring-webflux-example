@@ -4,10 +4,14 @@
 <script>
   var socket = new WebSocket('ws://localhost:8080/event-emitter');
   socket.addEventListener('message', function (event) {
-    console.log('message from server: ' + event.data);
+    console.log('receive from server: ' + event.data);
   });
  
-  socket.onopen = () => socket.send('hello');
+  socket.onopen = () => {
+	  const msg = '{"value":6}';
+	  console.log("sending value to server: " + msg)
+	  socket.send(msg); 
+  };
 
   
 </script>
